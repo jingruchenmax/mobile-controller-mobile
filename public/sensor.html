@@ -3,49 +3,40 @@
 <html lang="en">
   <head>
     <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>JavaScript Sensor Access Demo</title>
+    <style> 
+
+.button {
+  padding: 6vh 12vw; /* Use viewport units for padding */
+  font-size: large;
+  background-color: #007bff; /* Example background color */
+  color: white; /* Text color */
+  border: none; /* No border */
+  border-radius: 5px; /* Rounded corners */
+  cursor: pointer; /* Change mouse cursor to pointer */
+  transition: background-color 0.3s ease; /* Smooth transition for hover effect */
+  width:60%;
+  height:60%;
+}
+
+.button:hover {
+  background-color: #0056b3; /* Darker shade on hover */
+}
+    </style>
 </head>
 <body>
 <main role="main" class="container">
 <div>
-<button id="start_demo" class="btn btn-primary">Start the demo</button>
-<button id="sending_button" class="btn btn-primary">Sending Data</button>
+<button id="start_demo" class="button">Start Demo</button>
+<br><br>
+</div>
+<div>
+<button id="sending_button" class="button">Send Data</button>
 </div>
 <div class="p-3 mb-2 bg-secondary" id="demo-div">
 
 <p style="margin-top:1rem;">Num. of datapoints: <span class="badge badge-warning" id="num-observed-events">0</span></p>
-
-
-<h4 style="margin-top:0.75rem;">Orientation</h4>
-<ul>
-  <li>X-axis (&beta;): <span id="Orientation_b">0</span><span>&deg;</span></li>
-  <li>Y-axis (&gamma;): <span id="Orientation_g">0</span><span>&deg;</span></li>
-  <li>Z-axis (&alpha;): <span id="Orientation_a">0</span><span>&deg;</span></li>
-</ul>
-
-<h4>Accelerometer</h4>
-<ul>
-  <li>X-axis: <span id="Accelerometer_x">0</span><span> m/s<sup>2</sup></span></li>
-  <li>Y-axis: <span id="Accelerometer_y">0</span><span> m/s<sup>2</sup></span></li>
-  <li>Z-axis: <span id="Accelerometer_z">0</span><span> m/s<sup>2</sup></span></li>
-  <li>Data Interval: <span id="Accelerometer_i">0</span><span> ms</span></li>
-</ul>
-
-<h4>Accelerometer including gravity</h4>
-
-<ul>
-  <li>X-axis: <span id="Accelerometer_gx">0</span><span> m/s<sup>2</sup></span></li>
-  <li>Y-axis: <span id="Accelerometer_gy">0</span><span> m/s<sup>2</sup></span></li>
-  <li>Z-axis: <span id="Accelerometer_gz">0</span><span> m/s<sup>2</sup></span></li>
-</ul>
-
-<h4>Gyroscope</h4>
-<ul>
-  <li>X-axis: <span id="Gyroscope_x">0</span><span>&deg;/s</span></li>
-  <li>Y-axis: <span id="Gyroscope_y">0</span><span>&deg;/s</span></li>
-  <li>Z-axis: <span id="Gyroscope_z">0</span><span>&deg;/s</span></li>
-</ul>
 
 </div>
 </main>
@@ -57,6 +48,29 @@ let demo_button = document.getElementById("start_demo");
 // Example usage
 let sendDataIntervalId; // To keep track of the interval ID
 
+const sensorData = {
+    orientation: {
+        x_axis_beta: 45, // X-axis
+        y_axis_gamma: 30, // Y-axis
+        z_axis_alpha: 60, // Z-axis
+    },
+    accelerometer: {
+      x_axis: 9.81,
+      y_axis: -9.81,
+      z_axis: 0,
+      data_interval: 100,
+    },
+    accelerometer_including_gravity: {
+      x_axis: 9.81,
+      y_axis: 9.81,
+      z_axis: -9.81,
+    },
+    gyroscope: {
+      x_axis: 0.02,
+      y_axis: 0.01,
+      z_axis: 0.05,
+    }
+};
 
 function getWebSocketURL() {
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
@@ -82,9 +96,9 @@ ws.onclose = function() {
 };
 
 function handleOrientation(event) {
-  updateFieldIfNotNull('Orientation_a', event.alpha);
-  updateFieldIfNotNull('Orientation_b', event.beta);
-  updateFieldIfNotNull('Orientation_g', event.gamma);
+  sensorData.orientation.z_axis_alpha =  event.alpha;
+  sensorData.orientation.x_axis_beta =  event.beta;
+  sensorData.orientation.y_axis_gamma =  event.gamma;
   incrementEventCount();
 }
 
@@ -94,25 +108,20 @@ function incrementEventCount(){
   counterElement.innerHTML = eventCount + 1;
 }
 
-function updateFieldIfNotNull(fieldName, value, precision=10){
-  if (value != null)
-    document.getElementById(fieldName).innerHTML = value.toFixed(precision);
-}
-
 function handleMotion(event) {
-  updateFieldIfNotNull('Accelerometer_gx', event.accelerationIncludingGravity.x);
-  updateFieldIfNotNull('Accelerometer_gy', event.accelerationIncludingGravity.y);
-  updateFieldIfNotNull('Accelerometer_gz', event.accelerationIncludingGravity.z);
+  sensorData.accelerometer_including_gravity.x_axis = event.accelerationIncludingGravity.x;
+  sensorData.accelerometer_including_gravity.y_axis = event.accelerationIncludingGravity.y;
+  sensorData.accelerometer_including_gravity.z_axis = event.accelerationIncludingGravity.z;
 
-  updateFieldIfNotNull('Accelerometer_x', event.acceleration.x);
-  updateFieldIfNotNull('Accelerometer_y', event.acceleration.y);
-  updateFieldIfNotNull('Accelerometer_z', event.acceleration.z);
+  sensorData.accelerometer.x_axis = event.acceleration.x;
+  sensorData.accelerometer.y_axis = event.acceleration.y;
+  sensorData.accelerometer.z_axis =  event.acceleration.z;
 
-  updateFieldIfNotNull('Accelerometer_i', event.interval, 2);
+  sensorData.accelerometer.data_interval = event.interval;
 
-  updateFieldIfNotNull('Gyroscope_z', event.rotationRate.alpha);
-  updateFieldIfNotNull('Gyroscope_x', event.rotationRate.beta);
-  updateFieldIfNotNull('Gyroscope_y', event.rotationRate.gamma);
+  sensorData.gyroscope.y_axis = event.rotationRate.alpha;
+  sensorData.gyroscope.x_axis = event.rotationRate.beta;
+  sensorData.gyroscope.z_axis = event.rotationRate.alpha;
   incrementEventCount();
 }
 
@@ -154,44 +163,7 @@ function sendDataToServer(){
         return;
     }
 
-      // Collect orientation data
-  const orientation = {
-    x_axis_beta: parseFloat(document.getElementById("Orientation_b").innerHTML),
-    y_axis_gamma: parseFloat(document.getElementById("Orientation_g").innerHTML),
-    z_axis_alpha: parseFloat(document.getElementById("Orientation_a").innerHTML),
-  };
-
-  // Collect accelerometer data
-  const accelerometer = {
-    x_axis: parseFloat(document.getElementById("Accelerometer_x").innerHTML),
-    y_axis: parseFloat(document.getElementById("Accelerometer_y").innerHTML),
-    z_axis: parseFloat(document.getElementById("Accelerometer_z").innerHTML),
-    data_interval: parseFloat(document.getElementById("Accelerometer_i").innerHTML),
-  };
-
-  // Collect accelerometer including gravity data
-  const accelerometerGravity = {
-    x_axis: parseFloat(document.getElementById("Accelerometer_gx").innerHTML),
-    y_axis: parseFloat(document.getElementById("Accelerometer_gy").innerHTML),
-    z_axis: parseFloat(document.getElementById("Accelerometer_gz").innerHTML),
-  };
-
-  // Collect gyroscope data
-  const gyroscope = {
-    x_axis: parseFloat(document.getElementById("Gyroscope_x").innerHTML),
-    y_axis: parseFloat(document.getElementById("Gyroscope_y").innerHTML),
-    z_axis: parseFloat(document.getElementById("Gyroscope_z").innerHTML),
-  };
-
-  // Combine all data into a single JSON object
-  const dataJSON = {
-    orientation,
-    accelerometer,
-    accelerometer_including_gravity: accelerometerGravity,
-    gyroscope,
-  };
-
-  let dataString = JSON.stringify(dataJSON);
+  let dataString = JSON.stringify(sensorData);
   ws.send(dataString);
 }
 
@@ -204,7 +176,6 @@ function startSendingData() {
 // Function to stop sending data
 function stopSendingData(intervalId) {
   clearInterval(intervalId);
-  
 }
 
 
@@ -214,10 +185,10 @@ sending_button.onclick = function(e){
     // Stop sending data if already started
     stopSendingData(sendDataIntervalId);
     sendDataIntervalId = null;
-    this.textContent = "Start Sending Data";
+    this.textContent = "Start Sending";
   } else {
     sendDataIntervalId = startSendingData();
-    this.textContent = "Stop Sending Data";
+    this.textContent = "Stop Sending";
   }
 };
 
