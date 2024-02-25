@@ -1,0 +1,227 @@
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <title>JavaScript Sensor Access Demo</title>
+</head>
+<body>
+<main role="main" class="container">
+<div>
+<button id="start_demo" class="btn btn-primary">Start the demo</button>
+<button id="sending_button" class="btn btn-primary">Sending Data</button>
+</div>
+<div class="p-3 mb-2 bg-secondary" id="demo-div">
+
+<p style="margin-top:1rem;">Num. of datapoints: <span class="badge badge-warning" id="num-observed-events">0</span></p>
+
+
+<h4 style="margin-top:0.75rem;">Orientation</h4>
+<ul>
+  <li>X-axis (&beta;): <span id="Orientation_b">0</span><span>&deg;</span></li>
+  <li>Y-axis (&gamma;): <span id="Orientation_g">0</span><span>&deg;</span></li>
+  <li>Z-axis (&alpha;): <span id="Orientation_a">0</span><span>&deg;</span></li>
+</ul>
+
+<h4>Accelerometer</h4>
+<ul>
+  <li>X-axis: <span id="Accelerometer_x">0</span><span> m/s<sup>2</sup></span></li>
+  <li>Y-axis: <span id="Accelerometer_y">0</span><span> m/s<sup>2</sup></span></li>
+  <li>Z-axis: <span id="Accelerometer_z">0</span><span> m/s<sup>2</sup></span></li>
+  <li>Data Interval: <span id="Accelerometer_i">0</span><span> ms</span></li>
+</ul>
+
+<h4>Accelerometer including gravity</h4>
+
+<ul>
+  <li>X-axis: <span id="Accelerometer_gx">0</span><span> m/s<sup>2</sup></span></li>
+  <li>Y-axis: <span id="Accelerometer_gy">0</span><span> m/s<sup>2</sup></span></li>
+  <li>Z-axis: <span id="Accelerometer_gz">0</span><span> m/s<sup>2</sup></span></li>
+</ul>
+
+<h4>Gyroscope</h4>
+<ul>
+  <li>X-axis: <span id="Gyroscope_x">0</span><span>&deg;/s</span></li>
+  <li>Y-axis: <span id="Gyroscope_y">0</span><span>&deg;/s</span></li>
+  <li>Z-axis: <span id="Gyroscope_z">0</span><span>&deg;/s</span></li>
+</ul>
+
+</div>
+</main>
+
+<script>
+let ws; // WebSocket instance
+let is_running = false;
+let demo_button = document.getElementById("start_demo");
+// Example usage
+let sendDataIntervalId; // To keep track of the interval ID
+
+
+function getWebSocketURL() {
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const host = window.location.host; // host includes hostname and port if applicable
+    // const path = '/ws'; // Example path where WebSocket server is listening
+    return `${protocol}//${host}`;
+}
+
+serverURL = getWebSocketURL();
+
+ws = new WebSocket(serverURL);
+        
+ws.onopen = function() {
+    console.log("Connected to the server");
+};
+
+ws.onerror = function(error) {
+    console.log("WebSocket error: " + error);
+};
+
+ws.onclose = function() {
+    console.log("Disconnected from the server");
+};
+
+function handleOrientation(event) {
+  updateFieldIfNotNull('Orientation_a', event.alpha);
+  updateFieldIfNotNull('Orientation_b', event.beta);
+  updateFieldIfNotNull('Orientation_g', event.gamma);
+  incrementEventCount();
+}
+
+function incrementEventCount(){
+  let counterElement = document.getElementById("num-observed-events")
+  let eventCount = parseInt(counterElement.innerHTML)
+  counterElement.innerHTML = eventCount + 1;
+}
+
+function updateFieldIfNotNull(fieldName, value, precision=10){
+  if (value != null)
+    document.getElementById(fieldName).innerHTML = value.toFixed(precision);
+}
+
+function handleMotion(event) {
+  updateFieldIfNotNull('Accelerometer_gx', event.accelerationIncludingGravity.x);
+  updateFieldIfNotNull('Accelerometer_gy', event.accelerationIncludingGravity.y);
+  updateFieldIfNotNull('Accelerometer_gz', event.accelerationIncludingGravity.z);
+
+  updateFieldIfNotNull('Accelerometer_x', event.acceleration.x);
+  updateFieldIfNotNull('Accelerometer_y', event.acceleration.y);
+  updateFieldIfNotNull('Accelerometer_z', event.acceleration.z);
+
+  updateFieldIfNotNull('Accelerometer_i', event.interval, 2);
+
+  updateFieldIfNotNull('Gyroscope_z', event.rotationRate.alpha);
+  updateFieldIfNotNull('Gyroscope_x', event.rotationRate.beta);
+  updateFieldIfNotNull('Gyroscope_y', event.rotationRate.gamma);
+  incrementEventCount();
+}
+
+
+
+demo_button.onclick = function(e) {
+  e.preventDefault();
+  
+  // Request permission for iOS 13+ devices
+  if (
+    DeviceMotionEvent &&
+    typeof DeviceMotionEvent.requestPermission === "function"
+  ) {
+    DeviceMotionEvent.requestPermission();
+  }
+  
+  if (is_running){
+    window.removeEventListener("devicemotion", handleMotion);
+    window.removeEventListener("deviceorientation", handleOrientation);
+    demo_button.innerHTML = "Start demo";
+    demo_button.classList.add('btn-success');
+    demo_button.classList.remove('btn-danger');
+    is_running = false;
+  }else{
+    window.addEventListener("devicemotion", handleMotion);
+    window.addEventListener("deviceorientation", handleOrientation);
+    document.getElementById("start_demo").innerHTML = "Stop demo";
+    demo_button.classList.remove('btn-success');
+    demo_button.classList.add('btn-danger');
+    is_running = true;
+  }
+};
+
+
+function sendDataToServer(){
+
+  if (!ws || ws.readyState !== WebSocket.OPEN) {
+        console.log("WebSocket is not connected.");
+        return;
+    }
+
+      // Collect orientation data
+  const orientation = {
+    x_axis_beta: parseFloat(document.getElementById("Orientation_b").innerHTML),
+    y_axis_gamma: parseFloat(document.getElementById("Orientation_g").innerHTML),
+    z_axis_alpha: parseFloat(document.getElementById("Orientation_a").innerHTML),
+  };
+
+  // Collect accelerometer data
+  const accelerometer = {
+    x_axis: parseFloat(document.getElementById("Accelerometer_x").innerHTML),
+    y_axis: parseFloat(document.getElementById("Accelerometer_y").innerHTML),
+    z_axis: parseFloat(document.getElementById("Accelerometer_z").innerHTML),
+    data_interval: parseFloat(document.getElementById("Accelerometer_i").innerHTML),
+  };
+
+  // Collect accelerometer including gravity data
+  const accelerometerGravity = {
+    x_axis: parseFloat(document.getElementById("Accelerometer_gx").innerHTML),
+    y_axis: parseFloat(document.getElementById("Accelerometer_gy").innerHTML),
+    z_axis: parseFloat(document.getElementById("Accelerometer_gz").innerHTML),
+  };
+
+  // Collect gyroscope data
+  const gyroscope = {
+    x_axis: parseFloat(document.getElementById("Gyroscope_x").innerHTML),
+    y_axis: parseFloat(document.getElementById("Gyroscope_y").innerHTML),
+    z_axis: parseFloat(document.getElementById("Gyroscope_z").innerHTML),
+  };
+
+  // Combine all data into a single JSON object
+  const dataJSON = {
+    orientation,
+    accelerometer,
+    accelerometer_including_gravity: accelerometerGravity,
+    gyroscope,
+  };
+
+  let dataString = JSON.stringify(dataJSON);
+  ws.send(dataString);
+}
+
+// Function to start sending data continuously
+function startSendingData() {
+  // Start sending data at a 100ms interval
+  return setInterval(()=>{sendDataToServer();}, 100);
+}
+
+// Function to stop sending data
+function stopSendingData(intervalId) {
+  clearInterval(intervalId);
+  
+}
+
+
+
+sending_button.onclick = function(e){
+  if (sendDataIntervalId) {
+    // Stop sending data if already started
+    stopSendingData(sendDataIntervalId);
+    sendDataIntervalId = null;
+    this.textContent = "Start Sending Data";
+  } else {
+    sendDataIntervalId = startSendingData();
+    this.textContent = "Stop Sending Data";
+  }
+};
+
+
+</script>
+</body>
+</html>
