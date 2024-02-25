@@ -1,198 +1,236 @@
-
 <!doctype html>
 <html lang="en">
-  <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>JavaScript Sensor Access Demo</title>
-    <style> 
 
-.button {
-  padding: 6vh 12vw; /* Use viewport units for padding */
-  font-size: large;
-  background-color: #007bff; /* Example background color */
-  color: white; /* Text color */
-  border: none; /* No border */
-  border-radius: 5px; /* Rounded corners */
-  cursor: pointer; /* Change mouse cursor to pointer */
-  transition: background-color 0.3s ease; /* Smooth transition for hover effect */
-  width:60%;
-  height:60%;
-}
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>JavaScript Sensor Access Demo</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet"
+    integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
 
-.button:hover {
-  background-color: #0056b3; /* Darker shade on hover */
-}
-    </style>
 </head>
+
 <body>
-<main role="main" class="container">
-<div>
-<button id="start_demo" class="button">Start Demo</button>
-<br><br>
-</div>
-<div>
-<button id="sending_button" class="button">Send Data</button>
-</div>
-<div class="p-3 mb-2 bg-secondary" id="demo-div">
 
-<p style="margin-top:1rem;">Num. of datapoints: <span class="badge badge-warning" id="num-observed-events">0</span></p>
 
-</div>
-</main>
 
-<script>
-let ws; // WebSocket instance
-let is_running = false;
-let demo_button = document.getElementById("start_demo");
-// Example usage
-let sendDataIntervalId; // To keep track of the interval ID
 
-const sensorData = {
-    orientation: {
+  <main role="main" class="container">
+    <div class="d-grid gap-2 mt-2 mb-2">
+      <button id="start_demo" class="btn btn-primary btn-lg">Start Demo</button>
+    </div>
+    <div class="d-grid gap-2 mt-2 mb-2"> <button id="sending_button" class="btn btn-primary btn-lg">Send
+        Data</button>
+    </div>
+    <div class="d-grid gap-2 mt-2 mb-2"> <button id="connect_button" class="btn btn-primary btn-lg">Connect</button>
+    </div>
+    <div class="p-3 mb-2" id="demo-div">
+
+      <p> Num. of datapoints: <span class="badge badge-warning" id="num-observed-events">0</span></p>
+
+    </div>
+  </main>
+
+  <script>
+    let ws; // WebSocket instance
+    let is_running = false;
+    let demo_button = document.getElementById("start_demo");
+    // Example usage
+    let sendDataIntervalId; // To keep track of the interval ID
+    let is_connected = false;
+
+    const sensorData = {
+      orientation: {
         x_axis_beta: 45, // X-axis
         y_axis_gamma: 30, // Y-axis
         z_axis_alpha: 60, // Z-axis
-    },
-    accelerometer: {
-      x_axis: 9.81,
-      y_axis: -9.81,
-      z_axis: 0,
-      data_interval: 100,
-    },
-    accelerometer_including_gravity: {
-      x_axis: 9.81,
-      y_axis: 9.81,
-      z_axis: -9.81,
-    },
-    gyroscope: {
-      x_axis: 0.02,
-      y_axis: 0.01,
-      z_axis: 0.05,
+      },
+      accelerometer: {
+        x_axis: 9.81,
+        y_axis: -9.81,
+        z_axis: 0,
+        data_interval: 100,
+      },
+      accelerometer_including_gravity: {
+        x_axis: 9.81,
+        y_axis: 9.81,
+        z_axis: -9.81,
+      },
+      gyroscope: {
+        x_axis: 0.02,
+        y_axis: 0.01,
+        z_axis: 0.05,
+      }
+    };
+
+    function getWebSocketURL() {
+      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+      const host = window.location.host; // host includes hostname and port if applicable
+      // const path = '/ws'; // Example path where WebSocket server is listening
+      return `${protocol}//${host}`;
     }
-};
 
-function getWebSocketURL() {
-    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const host = window.location.host; // host includes hostname and port if applicable
-    // const path = '/ws'; // Example path where WebSocket server is listening
-    return `${protocol}//${host}`;
-}
+    serverURL = getWebSocketURL();
 
-serverURL = getWebSocketURL();
+    ws = new WebSocket(serverURL);
 
-ws = new WebSocket(serverURL);
-        
-ws.onopen = function() {
-    console.log("Connected to the server");
-};
+    ws.onopen = function () {
+      ws.send("Phone");
+      console.log("Connected to the server");
+      connect_button.classList.remove('btn-primary');
+      connect_button.classList.add('btn-danger');
+      connect_button.textContent = "Disconnect";
+      is_connected = true;
+    };
 
-ws.onerror = function(error) {
-    console.log("WebSocket error: " + error);
-};
+    ws.onerror = function (error) {
+      console.log("WebSocket error: " + error);
+    };
 
-ws.onclose = function() {
-    console.log("Disconnected from the server");
-};
+    ws.onclose = function () {
+      console.log("Disconnected from the server");
+      connect_button.classList.remove('btn-danger');
+      connect_button.classList.add('btn-primary');
+      connect_button.textContent = "Connect";
+      is_connected = false;
+    };
 
-function handleOrientation(event) {
-  sensorData.orientation.z_axis_alpha =  event.alpha;
-  sensorData.orientation.x_axis_beta =  event.beta;
-  sensorData.orientation.y_axis_gamma =  event.gamma;
-  incrementEventCount();
-}
+    function handleOrientation(event) {
+      sensorData.orientation.z_axis_alpha = event.alpha;
+      sensorData.orientation.x_axis_beta = event.beta;
+      sensorData.orientation.y_axis_gamma = event.gamma;
+      incrementEventCount();
+    }
 
-function incrementEventCount(){
-  let counterElement = document.getElementById("num-observed-events")
-  let eventCount = parseInt(counterElement.innerHTML)
-  counterElement.innerHTML = eventCount + 1;
-}
+    function incrementEventCount() {
+      let counterElement = document.getElementById("num-observed-events")
+      let eventCount = parseInt(counterElement.innerHTML)
+      counterElement.innerHTML = eventCount + 1;
+    }
 
-function handleMotion(event) {
-  sensorData.accelerometer_including_gravity.x_axis = event.accelerationIncludingGravity.x;
-  sensorData.accelerometer_including_gravity.y_axis = event.accelerationIncludingGravity.y;
-  sensorData.accelerometer_including_gravity.z_axis = event.accelerationIncludingGravity.z;
+    function handleMotion(event) {
+      sensorData.accelerometer_including_gravity.x_axis = event.accelerationIncludingGravity.x;
+      sensorData.accelerometer_including_gravity.y_axis = event.accelerationIncludingGravity.y;
+      sensorData.accelerometer_including_gravity.z_axis = event.accelerationIncludingGravity.z;
 
-  sensorData.accelerometer.x_axis = event.acceleration.x;
-  sensorData.accelerometer.y_axis = event.acceleration.y;
-  sensorData.accelerometer.z_axis =  event.acceleration.z;
+      sensorData.accelerometer.x_axis = event.acceleration.x;
+      sensorData.accelerometer.y_axis = event.acceleration.y;
+      sensorData.accelerometer.z_axis = event.acceleration.z;
 
-  sensorData.accelerometer.data_interval = event.interval;
+      sensorData.accelerometer.data_interval = event.interval;
 
-  sensorData.gyroscope.y_axis = event.rotationRate.alpha;
-  sensorData.gyroscope.x_axis = event.rotationRate.beta;
-  sensorData.gyroscope.z_axis = event.rotationRate.alpha;
-  incrementEventCount();
-}
-
-
-
-demo_button.onclick = function(e) {
-  e.preventDefault();
-  
-  // Request permission for iOS 13+ devices
-  if (
-    DeviceMotionEvent &&
-    typeof DeviceMotionEvent.requestPermission === "function"
-  ) {
-    DeviceMotionEvent.requestPermission();
-  }
-  
-  if (is_running){
-    window.removeEventListener("devicemotion", handleMotion);
-    window.removeEventListener("deviceorientation", handleOrientation);
-    demo_button.innerHTML = "Start demo";
-    demo_button.classList.add('btn-success');
-    demo_button.classList.remove('btn-danger');
-    is_running = false;
-  }else{
-    window.addEventListener("devicemotion", handleMotion);
-    window.addEventListener("deviceorientation", handleOrientation);
-    document.getElementById("start_demo").innerHTML = "Stop demo";
-    demo_button.classList.remove('btn-success');
-    demo_button.classList.add('btn-danger');
-    is_running = true;
-  }
-};
+      sensorData.gyroscope.y_axis = event.rotationRate.alpha;
+      sensorData.gyroscope.x_axis = event.rotationRate.beta;
+      sensorData.gyroscope.z_axis = event.rotationRate.alpha;
+      incrementEventCount();
+    }
 
 
-function sendDataToServer(){
 
-  if (!ws || ws.readyState !== WebSocket.OPEN) {
+    demo_button.onclick = function (e) {
+      e.preventDefault();
+
+      // Request permission for iOS 13+ devices
+      if (
+        DeviceMotionEvent &&
+        typeof DeviceMotionEvent.requestPermission === "function"
+      ) {
+        DeviceMotionEvent.requestPermission();
+      }
+
+      if (is_running) {
+        window.removeEventListener("devicemotion", handleMotion);
+        window.removeEventListener("deviceorientation", handleOrientation);
+        demo_button.innerHTML = "Start Demo";
+        demo_button.classList.add('btn-primary');
+        demo_button.classList.remove('btn-danger');
+        is_running = false;
+      } else {
+        window.addEventListener("devicemotion", handleMotion);
+        window.addEventListener("deviceorientation", handleOrientation);
+        document.getElementById("start_demo").innerHTML = "Stop Demo";
+        demo_button.classList.remove('btn-primary');
+        demo_button.classList.add('btn-danger');
+        is_running = true;
+      }
+    };
+
+
+    function sendDataToServer() {
+
+      if (!ws || ws.readyState !== WebSocket.OPEN) {
         console.log("WebSocket is not connected.");
         return;
+      }
+
+      let dataString = JSON.stringify(sensorData);
+      ws.send(dataString);
     }
 
-  let dataString = JSON.stringify(sensorData);
-  ws.send(dataString);
-}
+    // Function to start sending data continuously
+    function startSendingData() {
+      // Start sending data at a 100ms interval
+      return setInterval(() => { sendDataToServer(); }, 100);
+    }
 
-// Function to start sending data continuously
-function startSendingData() {
-  // Start sending data at a 100ms interval
-  return setInterval(()=>{sendDataToServer();}, 100);
-}
-
-// Function to stop sending data
-function stopSendingData(intervalId) {
-  clearInterval(intervalId);
-}
+    // Function to stop sending data
+    function stopSendingData(intervalId) {
+      clearInterval(intervalId);
+    }
 
 
 
-sending_button.onclick = function(e){
-  if (sendDataIntervalId) {
-    // Stop sending data if already started
-    stopSendingData(sendDataIntervalId);
-    sendDataIntervalId = null;
-    this.textContent = "Start Sending";
-  } else {
-    sendDataIntervalId = startSendingData();
-    this.textContent = "Stop Sending";
-  }
-};
+    sending_button.onclick = function (e) {
+      if (sendDataIntervalId) {
+        // Stop sending data if already started
+        stopSendingData(sendDataIntervalId);
+        sendDataIntervalId = null;
+        this.textContent = "Send Data";
+        this.classList.remove('btn-danger');
+        this.classList.add('btn-primary');
+      } else {
+        sendDataIntervalId = startSendingData();
+        this.textContent = "Stop Sending";
+        this.classList.remove('btn-primary');
+        this.classList.add('btn-danger');
+      }
+    };
 
 
-</script>
+    connect_button.onclick = function (e) {
+      if (is_connected) {
+        // Stop sending data if already started
+        ws.close();
+        this.textContent = "Connect";
+        this.classList.remove('btn-danger');
+        this.classList.add('btn-primary');
+        is_connected = false;
+      } else {
+        ws = new WebSocket(serverURL);
+        ws.onopen = function () {
+      ws.send("Phone");
+      console.log("Connected to the server");
+      connect_button.classList.remove('btn-primary');
+      connect_button.classList.add('btn-danger');
+      connect_button.textContent = "Disconnect";
+      is_connected = true;
+    };
+
+    ws.onerror = function (error) {
+      console.log("WebSocket error: " + error);
+    };
+
+    ws.onclose = function () {
+      console.log("Disconnected from the server");
+      connect_button.classList.remove('btn-danger');
+      connect_button.classList.add('btn-primary');
+      connect_button.textContent = "Connect";
+      is_connected = false;
+    };
+      }
+    };
+
+  </script>
 </body>
+
 </html>

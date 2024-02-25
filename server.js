@@ -8,9 +8,13 @@ const app = express();
 // Enable CORS
 app.use(cors());
 
-// Serve your dashboard.html file (make sure the path is correct)
-app.get('/', (req, res) => {
+// Serve sensor.html file (make sure the path is correct)
+app.get('/sensor', (req, res) => {
     res.sendFile(path.join(__dirname, 'public/sensor.html'));
+});
+
+app.get('/', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public/home.html'));
 });
 
 // Serve static files from public directory
@@ -24,25 +28,36 @@ const wss = new WebSocket.Server({ server });
 
 const PORT = process.env.PORT || 3000;
 
-let sender = 0;
+
+let unityClient = null;
+let phoneClient = null;
 
 // Handle WebSocket connections
 wss.on('connection', (ws) => {
-    const id = ++clientId; // Increment the ID for each new connection
-    clients.set(id, ws);
-    console.log(`Client ${id} connected`);
+    console.log(`Client connected`);
     ws.on('message', (m) => {
         try {
             const messageStr = m.toString('utf8');
             console.log(messageStr);
     
             if(messageStr == "Unity"){
-                clients.set(0, ws);
+                unityClient = ws;
+                if(phoneClient!=null){
+                    unityClient.send("PhoneConnected");
+                }
                 console.log(`Client identified as Unity`);
             }
+
+            else if(messageStr == "Phone"){
+                phoneClient = ws;
+                if(unityClient!=null){
+                    unityClient.send("PhoneConnected");
+                }
+                console.log(`Client identified as Phone`);
+            }
             else{
-                if (clients.has(0) && sender<=2) {
-                    sendMessageToClient(0, m);
+                if (unityClient!=null) {
+                    sendMessageToUnityClient(m);
                   }
             }
         } catch (e) {
@@ -51,8 +66,9 @@ wss.on('connection', (ws) => {
       });
 
     ws.on('close', () => {
-        clients.delete(id);
-        console.log(`Client ${id} disconnected`);
+        console.log(`Client disconnected`);
+        ws.close();
+        phoneClient=null;
     });
 });
 
@@ -61,15 +77,11 @@ server.listen(PORT, () => {
     console.log(`Server is running on port ${PORT}`);
 });
 
-let clientId = 1;
-const clients = new Map();
-
-function sendMessageToClient(clientId, message) {
-    const client = clients.get(clientId);
-    if (client && client.readyState === WebSocket.OPEN) {
-        client.send(message);
+function sendMessageToUnityClient(message) {
+    if (unityClient && unityClient.readyState === WebSocket.OPEN) {
+        unityClient.send(message);
     } else {
-        console.log(`Client ${clientId} not found or connection is not open.`);
+        console.log(`unityClient not found or connection is not open.`);
     }
 }
 
